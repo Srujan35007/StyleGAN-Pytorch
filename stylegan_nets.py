@@ -42,19 +42,35 @@ class Commander():
         self.latent_dims = self.generator.latent_dims
         self.max_res = self.generator.max_res
         self.max_channels = self.generator.max_channels
+        self.batch_size = 10
         print('Commander object created.')
         print(f'Running on {self.device}.')
-    
-    def get_batch(self, file_paths, batch_size):
-        # makes batches from the dataset
-        # TODO : Make a real batch not just random images
-        file_paths.sort()
+        
+    def make_batches(self, file_paths, batch_size):
+        # makes batches of file paths
+        random.shuffle(file_paths)
         l = len(file_paths)
-        batch = []
+        batches = []
         for i in range(l//batch_size):
-            batch.append(random.choice(file_paths[(i*batch_size):((i+1)*batch_size)]))
-        return batch
+            batches.append((file_paths[(i*batch_size):((i+1)*batch_size)]))
+        return batches
 
+    def map_ranges(self, array, actual_range, target_range):
+        # maps values from without changing the distribution
+        min_actual, max_actual = actual_range
+        min_target, max_target = target_range
+        new_array = min_target + ((max_target-min_target)/(max_actual-min_actual))*(array-min_actual)
+        return new_array
+    
+    def preprocess(self, batch):
+        # converts batch of file_paths to tensor batch
+        images = []
+        for file_path in batch:
+            img = np.asarray(cv2.imread(file_path))
+            img = np.asarray(self.map_ranges(img, (0,255), (-1,1))).reshape(3, self.max_res, self.max_res)
+            images.append(img)
+        return torch.tensor(images).view(self.batch_size, 3, self.max_res, self.max_res).float()
+            
     def plot_imgs(self, num_images):
         # plot images on the command line
         # TODO : Make the rand noise fixed for validation
@@ -75,17 +91,17 @@ class Commander():
         disc_file_path = f'./Snapshots/iter_{iteration_count}/disc_{iteration_count}.pt'
         return (gen_file_path, disc_file_path)
     
-    def normalize_img(self, img_array):
-        # convert image array [-1,1] to [0,255]
-        normalized = (255/2)*(img_array + 1)
-        return normalized
-    
     def normalize_noise(self, noise):
         # normalizes noise to [-1,1] and returns a tensor
         min_array = np.min(noise)
         max_array = np.max(noise)
         normalized = -1 + (2*(noise-min_array))/(max_array-min_array)
         return torch.tensor(np.asarray(normalized)).float()
+    
+    def normalize_img(self, img_array):
+        # convert image array [-1,1] to [0,255]
+        normalized = (255/2)*(img_array + 1)
+        return normalized
 
     def decode_img_tensor(self, img_tensor):
         # convert image tensor [-1,1] to plottable [0,255]
@@ -134,8 +150,11 @@ class Commander():
         pass
 
     def train_gan(self, save_freq=10000):
-        # TODO: train_generator
-        # TODO: train_discriminator
-        if self.iteration_count % save_freq == 0:
-            self.snapshot_model()
-        self.iteration_count += 1 # Update for every image
+        batches = self.make_batches(file_paths, self.batch_size)
+        for batch in batches:
+            batch = self.preprocess(batch)
+            # TODO: train_generator
+            # TODO: train_discriminator
+            if self.iteration_count % save_freq == 0:
+                self.snapshot_model()
+            self.iteration_count += self.batch_size # Update for every batch
