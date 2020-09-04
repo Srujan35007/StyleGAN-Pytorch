@@ -4,8 +4,8 @@ ___
 - [x] Commander object overview.
 - [x] Dataset helper functions.
 - [x] Saving model snapshots.
-- [ ] Logger for metrics.
-- [ ] Normalize images to [0,255] && decode functions, noise to [-1,1].
+- [x] Logger for metrics.
+- [x] Normalize images to [0,255] && decode functions, noise to [-1,1].
 - [ ] Training loops for Gen and Disc.
 - [ ] Upsample class.
 - [ ] Adaptive instance Norm class.
